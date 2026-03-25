@@ -1,0 +1,54 @@
+{
+  "name": "bigbrowser",
+  "version": "1.0.0",
+  "description": "BigBrowser - A fast, Unix-styled Node.js web browser with full GUI and CLI modes",
+  "main": "main.js",
+  "bin": {
+    "bigbrowser": "bin/bigbrowser.js",
+    "bigbrowser-gui": "bin/bigbrowser-gui.js"
+  },
+  "scripts": {
+    "start": "electron .",
+    "cli": "node bin/bigbrowser.js",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": ["browser", "electron", "cli", "unix", "freebsd", "react", "node"],
+  "license": "MIT",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "cheerio": "^1.0.0",
+    "electron": "^35.0.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.8.0"
+  },
+  "build": {
+    "appId": "com.bigbrowser.app",
+    "productName": "BigBrowser",
+    "copyright": "MIT",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*",
+      "!node_modules/.cache"
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }]
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }]
+    }
+  }
+}

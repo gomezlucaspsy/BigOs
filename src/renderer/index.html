@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>BigBrowser</title>
+  <link rel="stylesheet" href="styles/theme.css">
+</head>
+<body>
+
+  <!-- ── Title Bar / Tab Bar ─────────────────────────────────────────────── -->
+  <div id="titlebar">
+    <div id="logo" title="BigBrowser">BB</div>
+    <div id="tabs-container"></div>
+    <button id="new-tab-btn" title="New Tab [Ctrl+T]">+</button>
+    <div id="window-controls">
+      <button id="btn-min"   title="Minimize">─</button>
+      <button id="btn-max"   title="Maximize">□</button>
+      <button id="btn-close" title="Close">×</button>
+    </div>
+  </div>
+
+  <!-- ── Navigation Bar ─────────────────────────────────────────────────── -->
+  <div id="nav-bar">
+    <button class="nav-btn" id="back-btn"   title="Back [Alt+←]"    disabled>◂</button>
+    <button class="nav-btn" id="fwd-btn"    title="Forward [Alt+→]"  disabled>▸</button>
+    <button class="nav-btn" id="reload-btn" title="Reload [F5]">↺</button>
+    <span class="prompt">$&gt;</span>
+    <input id="address-bar" type="text"
+           placeholder="Enter URL or search…"
+           spellcheck="false" autocomplete="off" autocorrect="off">
+    <span id="sec-icon"></span>
+  </div>
+
+  <!-- ── Webview Container ──────────────────────────────────────────────── -->
+  <div id="webview-container">
+
+    <!-- Start / new-tab page -->
+    <div id="start-page">
+      <div class="start-logo-block">
+        <pre class="logo-art">
+  ╔══════════════════════════════════════════════════════╗
+  ║  ██████╗ ██╗ ██████╗  ██████╗ ██████╗   ██████╗     ║
+  ║  ██╔══██╗██║██╔════╝ ██╔══██╗██╔══██╗ ██╔═══██╗    ║
+  ║  ██████╔╝██║██║  ███╗██████╔╝██████╔╝ ██║   ██║    ║
+  ║  ██╔══██╗██║██║   ██║██╔══██╗██╔══██╗ ██║   ██║    ║
+  ║  ██████╔╝██║╚██████╔╝██████╔╝██║  ██║ ╚██████╔╝    ║
+  ║  ╚═════╝ ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝  ╚═════╝     ║
+  ╠══════════════════════════════════════════════════════╣
+  ║   Node Web Explorer  //  Unix Edition  //  v1.0.0   ║
+  ╚══════════════════════════════════════════════════════╝</pre>
+        <p class="start-sub">React Compatible &nbsp;·&nbsp; Chromium Engine &nbsp;·&nbsp; CLI + GUI</p>
+      </div>
+
+      <div class="shortcut-grid">
+        <div class="shortcut-panel">
+          <div class="panel-title">// NAVIGATION</div>
+          <div class="sc-row"><kbd>Ctrl+T</kbd><span>New tab</span></div>
+          <div class="sc-row"><kbd>Ctrl+W</kbd><span>Close tab</span></div>
+          <div class="sc-row"><kbd>Ctrl+L</kbd><span>Focus address bar</span></div>
+          <div class="sc-row"><kbd>F5</kbd><span>Reload</span></div>
+          <div class="sc-row"><kbd>Alt+←</kbd><span>Back</span></div>
+          <div class="sc-row"><kbd>Alt+→</kbd><span>Forward</span></div>
+          <div class="sc-row"><kbd>Ctrl+1–9</kbd><span>Switch to tab N</span></div>
+        </div>
+        <div class="shortcut-panel">
+          <div class="panel-title">// DEVELOPER</div>
+          <div class="sc-row"><kbd>F12</kbd><span>Toggle DevTools</span></div>
+          <div class="sc-row"><kbd>Ctrl+Shift+I</kbd><span>Inspector</span></div>
+          <div class="sc-row"><kbd>Ctrl+R</kbd><span>Hard reload</span></div>
+          <div class="sc-row"><kbd>Esc</kbd><span>Stop / restore URL</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Status Bar ─────────────────────────────────────────────────────── -->
+  <div id="status-bar">
+    <span id="status-text">READY</span>
+    <span id="status-mid"></span>
+    <span id="status-right">
+      <span id="tab-count">TABS:1</span>
+      <span class="sep">|</span>
+      <span id="engine-info">CHROMIUM</span>
+    </span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
