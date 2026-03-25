@@ -43,6 +43,9 @@ void TabManager::close_tab(int id) {
     for (std::size_t i = 0; i < tabs_.size(); ++i) {
         if (tabs_[i].id == id) {
             tabs_.erase(tabs_.begin() + static_cast<std::ptrdiff_t>(i));
+            if (i < active_index_ && active_index_ > 0) {
+                --active_index_;
+            }
             if (active_index_ >= tabs_.size()) {
                 active_index_ = tabs_.size() - 1;
             }
@@ -63,7 +66,12 @@ bool TabManager::switch_to(int id) {
 
 bool TabManager::navigate_active(const std::wstring& raw_input) {
     Tab& tab = active_tab();
-    tab.url = normalize_url(raw_input, homepage_);
+    const std::wstring next = normalize_url(raw_input, homepage_);
+    if (next == tab.url) {
+        return false;
+    }
+
+    tab.url = next;
 
     tab.history.resize(tab.history_index + 1);
     tab.history.push_back(tab.url);
