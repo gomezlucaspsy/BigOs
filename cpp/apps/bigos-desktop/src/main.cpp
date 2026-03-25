@@ -159,8 +159,14 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
       padding: 3px 8px;
       background: #0d1510;
     }
-    html {
-      padding-top: 74px !important;
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    body {
+      margin-top: 74px !important;
+      height: calc(100vh - 74px) !important;
       box-sizing: border-box !important;
     }
     /* PersonaForge specific 100vh overrides */
