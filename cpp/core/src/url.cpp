@@ -38,7 +38,21 @@ std::wstring normalize_url(const std::wstring& raw_input, const std::wstring& fa
         return L"https://" + input;
     }
 
-    return L"https://duckduckgo.com/?q=" + input;
+    std::wstring escaped;
+    escaped.reserve(input.size());
+    for (wchar_t ch : input) {
+        if (iswalnum(ch) || ch == L'-' || ch == L'_' || ch == L'.' || ch == L'~') {
+            escaped += ch;
+        } else if (ch == L' ') {
+            escaped += L'+';
+        } else {
+            wchar_t hex[4];
+            swprintf(hex, 4, L"%%%02X", static_cast<unsigned int>(ch & 0xFF));
+            escaped += hex;
+        }
+    }
+
+    return L"https://duckduckgo.com/?q=" + escaped;
 }
 
 }

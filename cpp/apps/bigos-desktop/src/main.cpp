@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <wrl.h>
+#include <shellapi.h>
+#include <cstdlib>
 
 #include <algorithm>
 #include <cwchar>
@@ -17,6 +19,7 @@ using Microsoft::WRL::ComPtr;
 namespace {
 
 constexpr wchar_t kClassName[] = L"BigOsDesktopWindow";
+constexpr LONG kChromeHeightPx = 74;
 
 const wchar_t* kFreeBsdChromeScript = LR"JS(
 (() => {
@@ -31,7 +34,6 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
 
   const style = document.createElement('style');
   style.textContent = `
-    html, body { margin-top: 74px !important; }
     #bigos-chrome {
       position: fixed;
       top: 0;
@@ -156,6 +158,14 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
       border: 1px solid #1e4e2d;
       padding: 3px 8px;
       background: #0d1510;
+    }
+    html {
+      padding-top: 74px !important;
+      box-sizing: border-box !important;
+    }
+    /* PersonaForge specific 100vh overrides */
+    .app-container, .p3app, .p3sel, .p3cr, .p3chat {
+      height: calc(100vh - 74px) !important;
     }
   `;
 
@@ -283,6 +293,82 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
 })();
 )JS";
 
+const wchar_t* kPwaCompatibilityScript = LR"JS(
+(() => {
+  if (window.__bigosPwaCompatInjected) return;
+  window.__bigosPwaCompatInjected = true;
+
+  // Make desktop shell appear like an installable standalone app where possible.
+  if (!window.matchMedia) {
+    window.matchMedia = function() {
+      return {
+        matches: false,
+        media: '',
+        onchange: null,
+        addListener: function() {},
+        removeListener: function() {},
+        addEventListener: function() {},
+        removeEventListener: function() {},
+        dispatchEvent: function() { return false; }
+      };
+    };
+  }
+
+  const originalMatchMedia = window.matchMedia.bind(window);
+  window.matchMedia = function(query) {
+    try {
+      const normalized = String(query || '').replace(/\s+/g, '').toLowerCase();
+      if (normalized === '(display-mode:standalone)' || normalized === '(display-mode:window-controls-overlay)') {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener: function() {},
+          removeListener: function() {},
+          addEventListener: function() {},
+          removeEventListener: function() {},
+          dispatchEvent: function() { return true; }
+        };
+      }
+    } catch (_) {}
+    return originalMatchMedia(query);
+  };
+
+  // Provide an inert beforeinstallprompt so apps that gate UI on this event keep working.
+  if (!('onbeforeinstallprompt' in window)) {
+    Object.defineProperty(window, 'onbeforeinstallprompt', {
+      configurable: true,
+      writable: true,
+      value: null
+    });
+  }
+
+  if (!window.__bigosInstallPromptDispatched) {
+    window.__bigosInstallPromptDispatched = true;
+    setTimeout(() => {
+      try {
+        const event = new Event('beforeinstallprompt');
+        event.prompt = async () => {
+          if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage('install_app:' + (document.title || 'App') + '|' + window.location.href);
+          }
+        };
+        event.userChoice = Promise.resolve({ outcome: 'accepted', platform: 'bigos' });
+        event.preventDefault = Event.prototype.preventDefault.bind(event);
+        window.dispatchEvent(event);
+      } catch (_) {}
+    }, 1200);
+  }
+
+  if (!navigator.standalone) {
+    Object.defineProperty(navigator, 'standalone', {
+      configurable: true,
+      get: () => true
+    });
+  }
+})();
+)JS";
+
 struct AppState {
   struct Favorite {
     std::wstring title;
@@ -293,6 +379,8 @@ struct AppState {
   std::vector<Favorite> favorites;
   ComPtr<ICoreWebView2Controller> controller;
   ComPtr<ICoreWebView2> webview;
+  bool is_app_mode = false;
+  std::wstring app_url;
 };
 
 AppState* GetState(HWND hwnd) {
@@ -432,6 +520,10 @@ std::wstring FavoritesDirectoryPath() {
   return std::wstring(local_app_data, length) + L"\\BigOs";
 }
 
+std::wstring WebViewUserDataDirectoryPath() {
+  return FavoritesDirectoryPath() + L"\\WebView2";
+}
+
 std::wstring FavoritesFilePath() {
   return FavoritesDirectoryPath() + L"\\favorites.txt";
 }
@@ -439,6 +531,13 @@ std::wstring FavoritesFilePath() {
 bool EnsureFavoritesDirectoryExists() {
   const std::wstring dir = FavoritesDirectoryPath();
   if (CreateDirectoryW(dir.c_str(), nullptr)) {
+    return true;
+  }
+  return GetLastError() == ERROR_ALREADY_EXISTS;
+}
+
+bool EnsureDirectoryExists(const std::wstring& path) {
+  if (CreateDirectoryW(path.c_str(), nullptr)) {
     return true;
   }
   return GetLastError() == ERROR_ALREADY_EXISTS;
@@ -664,8 +763,11 @@ void InjectChrome(AppState* state) {
   if (!state || !state->webview) {
     return;
   }
-  state->webview->ExecuteScript(kFreeBsdChromeScript, nullptr);
-  SyncUiState(state);
+  state->webview->ExecuteScript(kPwaCompatibilityScript, nullptr);
+  if (!state->is_app_mode) {
+    state->webview->ExecuteScript(kFreeBsdChromeScript, nullptr);
+    SyncUiState(state);
+  }
 }
 
 void NavigateToActiveTab(AppState* state) {
@@ -677,8 +779,58 @@ void NavigateToActiveTab(AppState* state) {
   state->webview->Navigate(url.c_str());
 }
 
+void UpdateActiveTabFromWebView(AppState* state) {
+  if (!state || !state->webview) {
+    return;
+  }
+
+  LPWSTR source = nullptr;
+  if (SUCCEEDED(state->webview->get_Source(&source)) && source != nullptr) {
+    state->tabs.navigate_active(source);
+    CoTaskMemFree(source);
+  }
+
+  LPWSTR title = nullptr;
+  if (SUCCEEDED(state->webview->get_DocumentTitle(&title)) && title != nullptr) {
+    auto& active = state->tabs.active_tab();
+    if (wcslen(title) > 0) {
+      active.title = title;
+    } else if (active.title.empty()) {
+      active.title = active.url;
+    }
+    CoTaskMemFree(title);
+  }
+}
+
 void HandleCommand(AppState* state, const std::wstring& command) {
   if (!state || !state->webview) {
+    return;
+  }
+
+  if (command.rfind(L"install_app:", 0) == 0) {
+    const std::wstring payload = command.substr(12);
+    const std::size_t pipe = payload.find(L'|');
+    if (pipe != std::wstring::npos) {
+      std::wstring title = payload.substr(0, pipe);
+      for (wchar_t& c : title) {
+          if (c == L':' || c == L'\\' || c == L'/' || c == L'*' || c == L'?' || c == L'\"' || c == L'<' || c == L'>' || c == L'|') {
+              c = L'_';
+          }
+      }
+      std::wstring url = payload.substr(pipe + 1);
+      
+      wchar_t exe_path[MAX_PATH];
+      GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+
+      std::wstring ps_cmd = L"powershell -NoProfile -WindowStyle Hidden -Command \"$s=(New-Object -COM WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\\";
+      ps_cmd += title + L".lnk');$s.TargetPath='";
+      ps_cmd += exe_path;
+      ps_cmd += L"';$s.Arguments='--app=";
+      ps_cmd += url;
+      ps_cmd += L"';$s.Save()\"";
+
+      _wsystem(ps_cmd.c_str());
+    }
     return;
   }
 
@@ -786,9 +938,13 @@ void InitWebView(HWND hwnd) {
     return;
   }
 
-  CreateCoreWebView2EnvironmentWithOptions(
+    const std::wstring user_data_dir = WebViewUserDataDirectoryPath();
+    EnsureFavoritesDirectoryExists();
+    EnsureDirectoryExists(user_data_dir);
+
+    CreateCoreWebView2EnvironmentWithOptions(
       nullptr,
-      nullptr,
+      user_data_dir.c_str(),
       nullptr,
       Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
           [hwnd](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
@@ -811,6 +967,41 @@ void InitWebView(HWND hwnd) {
 
                       state->controller = controller;
                       state->controller->get_CoreWebView2(&state->webview);
+
+                      ComPtr<ICoreWebView2Settings> settings;
+                      if (SUCCEEDED(state->webview->get_Settings(&settings)) && settings) {
+                        settings->put_IsScriptEnabled(TRUE);
+                        settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+                        settings->put_IsWebMessageEnabled(TRUE);
+                        settings->put_AreDevToolsEnabled(TRUE);
+                        settings->put_IsStatusBarEnabled(TRUE);
+                        settings->put_AreDefaultContextMenusEnabled(TRUE);
+                      }
+
+                      state->webview->add_PermissionRequested(
+                          Callback<ICoreWebView2PermissionRequestedEventHandler>(
+                              [](ICoreWebView2*, ICoreWebView2PermissionRequestedEventArgs* args) -> HRESULT {
+                                if (!args) {
+                                  return S_OK;
+                                }
+
+                                COREWEBVIEW2_PERMISSION_KIND kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
+                                args->get_PermissionKind(&kind);
+
+                                switch (kind) {
+                                  case COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS:
+                                  case COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION:
+                                  case COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ:
+                                  case COREWEBVIEW2_PERMISSION_KIND_MICROPHONE:
+                                  case COREWEBVIEW2_PERMISSION_KIND_CAMERA:
+                                    args->put_State(COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+                                    return S_OK;
+                                  default:
+                                    return S_OK;
+                                }
+                              })
+                              .Get(),
+                          nullptr);
 
                       ResizeWebView(hwnd);
 
@@ -835,16 +1026,33 @@ void InitWebView(HWND hwnd) {
 
                       state->webview->add_NavigationCompleted(
                           Callback<ICoreWebView2NavigationCompletedEventHandler>(
-                              [hwnd](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs*) -> HRESULT {
+                              [hwnd](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
                                 auto* current_state = GetState(hwnd);
                                 if (current_state && current_state->webview) {
-                                  LPWSTR source = nullptr;
-                                  if (SUCCEEDED(current_state->webview->get_Source(&source)) && source != nullptr) {
-                                    current_state->tabs.navigate_active(source);
-                                    CoTaskMemFree(source);
+                                  BOOL success = FALSE;
+                                  if (args) {
+                                    args->get_IsSuccess(&success);
+                                  }
+                                  if (success) {
+                                    UpdateActiveTabFromWebView(current_state);
                                   }
                                 }
                                 InjectChrome(current_state);
+                                return S_OK;
+                              })
+                              .Get(),
+                          nullptr);
+
+                      state->webview->add_DocumentTitleChanged(
+                          Callback<ICoreWebView2DocumentTitleChangedEventHandler>(
+                              [hwnd](ICoreWebView2*, IUnknown*) -> HRESULT {
+                                auto* current_state = GetState(hwnd);
+                                if (!current_state || !current_state->webview) {
+                                  return S_OK;
+                                }
+
+                                UpdateActiveTabFromWebView(current_state);
+                                SyncUiState(current_state);
                                 return S_OK;
                               })
                               .Get(),
@@ -893,6 +1101,21 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   }
 
   AppState state{};
+
+  int argc;
+  LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  if (argv && argc > 1) {
+      std::wstring arg = argv[1];
+      if (arg.rfind(L"--app=", 0) == 0) {
+          state.is_app_mode = true;
+          state.app_url = arg.substr(6);
+          state.tabs = bigos::core::TabManager{state.app_url};
+      }
+  }
+  if (argv) {
+      LocalFree(argv);
+  }
+
   LoadFavorites(&state);
 
   WNDCLASSEX wc{};
