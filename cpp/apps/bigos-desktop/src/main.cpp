@@ -1,7 +1,9 @@
 #include <windows.h>
 #include <wrl.h>
 
+#include <algorithm>
 #include <cwchar>
+#include <string_view>
 #include <vector>
 #include <string>
 
@@ -67,6 +69,7 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
       border: 1px solid #1e4e2d;
       background: #0d1510;
       color: #79e39c;
+      font-family: 'Consolas', 'Courier New', monospace;
       font-size: 11px;
       padding: 3px 8px;
       max-width: 240px;
@@ -84,6 +87,10 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
       border: 1px solid #1e4e2d;
       background: #0f1f15;
       color: #7ded9f;
+      font-family: 'Consolas', 'Courier New', monospace;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 26px;
       height: 24px;
       cursor: pointer;
@@ -100,15 +107,39 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
       border: 1px solid #1e4e2d;
       background: #0b1510;
       color: #7ded9f;
-      width: 30px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
       height: 26px;
+      padding: 0 8px;
       cursor: pointer;
+    }
+    .bigos-btn.reload {
+      min-width: 70px;
     }
     .bigos-btn:disabled {
       opacity: 0.45;
       cursor: default;
     }
     #bigos-prompt { color: #00ff7a; }
+    #bigos-favorite {
+      min-width: 34px;
+      font-size: 15px;
+      line-height: 1;
+    }
+    #bigos-favorites {
+      border: 1px solid #1e4e2d;
+      background: #020202;
+      color: #00d05a;
+      font-family: 'Consolas', 'Courier New', monospace;
+      height: 26px;
+      padding: 0 4px;
+      max-width: 190px;
+    }
     #bigos-address {
       flex: 1;
       background: #020202;
@@ -137,9 +168,13 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
       <button id="bigos-new-tab" title="New tab">+</button>
     </div>
     <div id="bigos-bottom">
-      <button class="bigos-btn" id="bigos-back" title="Back">◀</button>
-      <button class="bigos-btn" id="bigos-forward" title="Forward">▶</button>
-      <button class="bigos-btn" id="bigos-reload" title="Reload">↻</button>
+      <button class="bigos-btn" id="bigos-back" title="Back">&lt;</button>
+      <button class="bigos-btn" id="bigos-forward" title="Forward">&gt;</button>
+      <button class="bigos-btn reload" id="bigos-reload" title="Reload">Reload</button>
+      <button class="bigos-btn" id="bigos-favorite" title="Add to favorites">&#9734;</button>
+      <select id="bigos-favorites" title="Favorites">
+        <option value="">favorites</option>
+      </select>
       <span id="bigos-prompt">$&gt;</span>
       <input id="bigos-address" placeholder="url or search" />
     </div>
@@ -153,6 +188,8 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
   const backBtn = document.getElementById('bigos-back');
   const forwardBtn = document.getElementById('bigos-forward');
   const reloadBtn = document.getElementById('bigos-reload');
+  const favoriteBtn = document.getElementById('bigos-favorite');
+  const favoritesEl = document.getElementById('bigos-favorites');
   const newTabBtn = document.getElementById('bigos-new-tab');
 
   const navigateFromAddress = () => {
@@ -172,6 +209,13 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
   backBtn.addEventListener('click', () => send('back'));
   forwardBtn.addEventListener('click', () => send('forward'));
   reloadBtn.addEventListener('click', () => send('reload'));
+  favoriteBtn.addEventListener('click', () => send('toggle_favorite'));
+  favoritesEl.addEventListener('change', () => {
+    if (favoritesEl.value !== '') {
+      send('open_favorite:' + favoritesEl.value);
+      favoritesEl.value = '';
+    }
+  });
   newTabBtn.addEventListener('click', () => send('new_tab'));
 
   document.addEventListener('keydown', (e) => {
@@ -213,6 +257,25 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
 
     backBtn.disabled = !state.canBack;
     forwardBtn.disabled = !state.canForward;
+    favoriteBtn.textContent = state.isFavorite ? '\u2B50' : '\u2606';
+    favoriteBtn.title = state.isFavorite ? 'Remove from favorites' : 'Add to favorites';
+
+    favoritesEl.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'favorites';
+    favoritesEl.appendChild(placeholder);
+
+    if (Array.isArray(state.favorites)) {
+      for (const f of state.favorites) {
+        const opt = document.createElement('option');
+        opt.value = String(f.id);
+        opt.textContent = f.title || f.url || 'Favorite';
+        opt.title = f.url || '';
+        favoritesEl.appendChild(opt);
+      }
+    }
+
     if (typeof state.url === 'string' && document.activeElement !== addr) {
       addr.value = state.url;
     }
@@ -221,13 +284,281 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
 )JS";
 
 struct AppState {
+  struct Favorite {
+    std::wstring title;
+    std::wstring url;
+  };
+
   bigos::core::TabManager tabs{L"https://duckduckgo.com"};
+  std::vector<Favorite> favorites;
   ComPtr<ICoreWebView2Controller> controller;
   ComPtr<ICoreWebView2> webview;
 };
 
 AppState* GetState(HWND hwnd) {
   return reinterpret_cast<AppState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+}
+
+std::string Utf8FromWide(const std::wstring& value) {
+  if (value.empty()) {
+    return {};
+  }
+
+  const int size = WideCharToMultiByte(
+      CP_UTF8,
+      0,
+      value.c_str(),
+      static_cast<int>(value.size()),
+      nullptr,
+      0,
+      nullptr,
+      nullptr);
+
+  if (size <= 0) {
+    return {};
+  }
+
+  std::string out(static_cast<std::size_t>(size), '\0');
+  WideCharToMultiByte(
+      CP_UTF8,
+      0,
+      value.c_str(),
+      static_cast<int>(value.size()),
+      out.data(),
+      size,
+      nullptr,
+      nullptr);
+  return out;
+}
+
+std::wstring WideFromUtf8(const std::string_view value) {
+  if (value.empty()) {
+    return {};
+  }
+
+  const int size = MultiByteToWideChar(
+      CP_UTF8,
+      MB_ERR_INVALID_CHARS,
+      value.data(),
+      static_cast<int>(value.size()),
+      nullptr,
+      0);
+
+  if (size <= 0) {
+    return {};
+  }
+
+  std::wstring out(static_cast<std::size_t>(size), L'\0');
+  MultiByteToWideChar(
+      CP_UTF8,
+      MB_ERR_INVALID_CHARS,
+      value.data(),
+      static_cast<int>(value.size()),
+      out.data(),
+      size);
+  return out;
+}
+
+std::wstring EscapePersistField(const std::wstring& value) {
+  std::wstring escaped;
+  escaped.reserve(value.size() + 16);
+  for (wchar_t ch : value) {
+    switch (ch) {
+      case L'\\':
+        escaped += L"\\\\";
+        break;
+      case L'\t':
+        escaped += L"\\t";
+        break;
+      case L'\r':
+        escaped += L"\\r";
+        break;
+      case L'\n':
+        escaped += L"\\n";
+        break;
+      default:
+        escaped.push_back(ch);
+        break;
+    }
+  }
+  return escaped;
+}
+
+std::wstring UnescapePersistField(const std::wstring& value) {
+  std::wstring out;
+  out.reserve(value.size());
+
+  for (std::size_t i = 0; i < value.size(); ++i) {
+    const wchar_t ch = value[i];
+    if (ch == L'\\' && i + 1 < value.size()) {
+      const wchar_t code = value[i + 1];
+      switch (code) {
+        case L'\\':
+          out.push_back(L'\\');
+          ++i;
+          continue;
+        case L't':
+          out.push_back(L'\t');
+          ++i;
+          continue;
+        case L'r':
+          out.push_back(L'\r');
+          ++i;
+          continue;
+        case L'n':
+          out.push_back(L'\n');
+          ++i;
+          continue;
+        default:
+          break;
+      }
+    }
+    out.push_back(ch);
+  }
+
+  return out;
+}
+
+std::wstring FavoritesDirectoryPath() {
+  wchar_t local_app_data[MAX_PATH]{};
+  const DWORD length = GetEnvironmentVariableW(
+      L"LOCALAPPDATA",
+      local_app_data,
+      static_cast<DWORD>(std::size(local_app_data)));
+  if (length == 0 || length >= std::size(local_app_data)) {
+    return L".";
+  }
+
+  return std::wstring(local_app_data, length) + L"\\BigOs";
+}
+
+std::wstring FavoritesFilePath() {
+  return FavoritesDirectoryPath() + L"\\favorites.txt";
+}
+
+bool EnsureFavoritesDirectoryExists() {
+  const std::wstring dir = FavoritesDirectoryPath();
+  if (CreateDirectoryW(dir.c_str(), nullptr)) {
+    return true;
+  }
+  return GetLastError() == ERROR_ALREADY_EXISTS;
+}
+
+bool SaveFavorites(const AppState* state) {
+  if (!state || !EnsureFavoritesDirectoryExists()) {
+    return false;
+  }
+
+  std::wstring content;
+  for (const auto& favorite : state->favorites) {
+    content += EscapePersistField(favorite.title);
+    content += L"\t";
+    content += EscapePersistField(favorite.url);
+    content += L"\n";
+  }
+
+  const std::string utf8 = Utf8FromWide(content);
+  const std::wstring file_path = FavoritesFilePath();
+
+  HANDLE file = CreateFileW(
+      file_path.c_str(),
+      GENERIC_WRITE,
+      FILE_SHARE_READ,
+      nullptr,
+      CREATE_ALWAYS,
+      FILE_ATTRIBUTE_NORMAL,
+      nullptr);
+
+  if (file == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  DWORD written = 0;
+  const BOOL ok = WriteFile(
+      file,
+      utf8.data(),
+      static_cast<DWORD>(utf8.size()),
+      &written,
+      nullptr);
+
+  CloseHandle(file);
+  return ok == TRUE && written == utf8.size();
+}
+
+void LoadFavorites(AppState* state) {
+  if (!state) {
+    return;
+  }
+
+  const std::wstring file_path = FavoritesFilePath();
+  HANDLE file = CreateFileW(
+      file_path.c_str(),
+      GENERIC_READ,
+      FILE_SHARE_READ,
+      nullptr,
+      OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL,
+      nullptr);
+
+  if (file == INVALID_HANDLE_VALUE) {
+    return;
+  }
+
+  LARGE_INTEGER size{};
+  if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0 || size.QuadPart > 1024 * 1024) {
+    CloseHandle(file);
+    return;
+  }
+
+  std::string bytes(static_cast<std::size_t>(size.QuadPart), '\0');
+  DWORD read = 0;
+  const BOOL ok = ReadFile(
+      file,
+      bytes.data(),
+      static_cast<DWORD>(bytes.size()),
+      &read,
+      nullptr);
+  CloseHandle(file);
+
+  if (ok != TRUE) {
+    return;
+  }
+  bytes.resize(read);
+
+  const std::wstring decoded = WideFromUtf8(bytes);
+  if (decoded.empty()) {
+    return;
+  }
+
+  state->favorites.clear();
+
+  std::size_t start = 0;
+  while (start < decoded.size()) {
+    std::size_t end = decoded.find(L'\n', start);
+    if (end == std::wstring::npos) {
+      end = decoded.size();
+    }
+
+    std::wstring line = decoded.substr(start, end - start);
+    if (!line.empty() && line.back() == L'\r') {
+      line.pop_back();
+    }
+
+    const std::size_t sep = line.find(L'\t');
+    if (sep != std::wstring::npos) {
+      AppState::Favorite favorite{};
+      favorite.title = UnescapePersistField(line.substr(0, sep));
+      favorite.url = UnescapePersistField(line.substr(sep + 1));
+      if (!favorite.url.empty()) {
+        if (favorite.title.empty()) {
+          favorite.title = favorite.url;
+        }
+        state->favorites.push_back(std::move(favorite));
+      }
+    }
+
+    start = end + 1;
+  }
 }
 
 std::wstring EscapeJsString(const std::wstring& value) {
@@ -277,7 +608,29 @@ std::wstring BuildStateSyncScript(const AppState* state) {
     script += L"}";
   }
 
-  script += L"],canBack:";
+  script += L"],favorites:[";
+  for (std::size_t i = 0; i < state->favorites.size(); ++i) {
+    const auto& favorite = state->favorites[i];
+    if (i > 0) {
+      script += L",";
+    }
+    script += L"{id:" + std::to_wstring(i);
+    script += L",title:\"" + EscapeJsString(favorite.title) + L"\"";
+    script += L",url:\"" + EscapeJsString(favorite.url) + L"\"";
+    script += L"}";
+  }
+
+  script += L"],isFavorite:";
+  bool is_favorite = false;
+  const std::wstring& active_url = state->tabs.active_tab().url;
+  for (const auto& favorite : state->favorites) {
+    if (favorite.url == active_url) {
+      is_favorite = true;
+      break;
+    }
+  }
+  script += (is_favorite ? L"true" : L"false");
+  script += L",canBack:";
   script += (state->tabs.can_back() ? L"true" : L"false");
   script += L",canForward:";
   script += (state->tabs.can_forward() ? L"true" : L"false");
@@ -357,6 +710,43 @@ void HandleCommand(AppState* state, const std::wstring& command) {
 
   if (command == L"new_tab") {
     state->tabs.new_tab();
+    NavigateToActiveTab(state);
+    return;
+  }
+
+  if (command == L"toggle_favorite") {
+    const auto& tab = state->tabs.active_tab();
+    auto it = std::find_if(
+        state->favorites.begin(),
+        state->favorites.end(),
+        [&tab](const AppState::Favorite& favorite) { return favorite.url == tab.url; });
+
+    if (it != state->favorites.end()) {
+      state->favorites.erase(it);
+    } else {
+      AppState::Favorite favorite{};
+      favorite.url = tab.url;
+      favorite.title = tab.title.empty() ? tab.url : tab.title;
+      state->favorites.push_back(std::move(favorite));
+    }
+
+    SaveFavorites(state);
+    SyncUiState(state);
+    return;
+  }
+
+  if (command.rfind(L"open_favorite:", 0) == 0) {
+    const std::wstring value = command.substr(14);
+    if (value.empty()) {
+      return;
+    }
+
+    const int id = _wtoi(value.c_str());
+    if (id < 0 || static_cast<std::size_t>(id) >= state->favorites.size()) {
+      return;
+    }
+
+    state->tabs.navigate_active(state->favorites[static_cast<std::size_t>(id)].url);
     NavigateToActiveTab(state);
     return;
   }
@@ -503,6 +893,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   }
 
   AppState state{};
+  LoadFavorites(&state);
 
   WNDCLASSEX wc{};
   wc.cbSize = sizeof(WNDCLASSEX);

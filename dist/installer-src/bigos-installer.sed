@@ -16,10 +16,10 @@ DisplayLicense=
 FinishMessage=BigOs was installed successfully.
 TargetName=C:\Users\publi\OneDrive\Desktop\CODE\BigOs\dist\BigOs-Installer.exe
 FriendlyName=BigOs Installer
-AppLaunched=install.bat
+AppLaunched=cmd.exe /c install.bat
 PostInstallCmd=<None>
-AdminQuietInstCmd=install.bat
-UserQuietInstCmd=install.bat
+AdminQuietInstCmd=cmd.exe /c install.bat
+UserQuietInstCmd=cmd.exe /c install.bat
 SourceFiles=SourceFiles
 
 [Strings]
