@@ -1,2 +1,6 @@
-target/
-Cargo.lock
+build/
+.vs/
+*.user
+*.sln
+*.vcxproj*
+deps/

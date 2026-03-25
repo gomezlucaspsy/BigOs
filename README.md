@@ -1,99 +1,83 @@
-# BigOs — Native Rust Browser
+# BigOs - Native C++ Browser Shell
 
-BigOs is a Rust-first web browser with a **Unix/FreeBSD terminal aesthetic**.  
-Desktop shell is powered by [`wry`](https://github.com/tauri-apps/wry) (native WebView2 / WebKit / WebKitGTK).  
-Android shell uses the platform `WebView` via JNI from a shared Rust core.
+BigOs is now C++-first, focused on a native desktop browser shell with a Unix/FreeBSD visual style.
 
-## Features
+Current implementation target:
 
-- Phosphor-green monospace terminal chrome
-- Multi-tab support with per-tab history
-- Smart address bar (URL, bare hostname, or DuckDuckGo search)
-- React Native Web compatible — `localhost` apps (like [PersonaForge](https://github.com/gomezlucaspsy/personaforge)) work out of the box
-- Keyboard shortcuts (`Ctrl+T`, `Ctrl+W`, `Ctrl+L`, `Alt+← →`, `F5`, `F12`)
-- GitHub-native download — get a signed binary straight from Releases
+- Windows desktop app in C++20
+- Native WebView2 rendering engine
+- CMake build system
+- Shared C++ core for URL and tab state
 
-## Workspace layout
+## Features (current MVP)
+
+- Native Win32 window
+- Embedded WebView2 browser engine
+- FreeBSD-like terminal chrome injected into pages
+- Shared C++ tab manager and URL normalizer
+
+## Project layout
 
 ```
 BigOs/
-├── crates/
-│   ├── bigos-core/        # Shared browser logic (tabs, URL utils)
-│   └── bigos-android/     # JNI bridge → Android WebView shell
-└── apps/
-    ├── bigos-desktop/     # Desktop binary (Windows / macOS / Linux)
-    └── bigos-android/     # Android Gradle project (Kotlin shell)
+├── CMakeLists.txt
+├── cpp/
+│   ├── core/
+│   │   ├── include/bigos/core/
+│   │   └── src/
+│   └── apps/
+│       └── bigos-desktop/
+│           ├── CMakeLists.txt
+│           └── src/main.cpp
+└── .github/workflows/
+    └── release-desktop.yml
 ```
 
-## Build locally (desktop)
+## Build locally (Windows)
 
-### 1 — Install Rust
+### 1) Install prerequisites
 
-```powershell
-winget install Rustlang.Rustup
-```
+- Visual Studio 2022 Build Tools (Desktop development with C++)
+- CMake 3.24+
+- WebView2 SDK
 
-### 2 — Install MSVC Build Tools (Windows only)
+Install Build Tools with winget:
 
 ```powershell
 winget install Microsoft.VisualStudio.2022.BuildTools
 ```
 
-Select **Desktop development with C++** and the **Windows SDK**.
+### 2) Set WebView2 SDK path
 
-### 3 — Run
-
-```powershell
-cargo run -p bigos-desktop
-```
-
-Open a specific URL on launch:
+Set an environment variable that points to the SDK root:
 
 ```powershell
-cargo run -p bigos-desktop -- https://github.com/gomezlucaspsy/personaforge
+$env:WEBVIEW2_SDK_PATH="C:\path\to\Microsoft.Web.WebView2.<version>"
 ```
 
-Linux system dependencies:
+The build expects:
 
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev pkg-config
+- `build/native/include/WebView2.h`
+- `build/native/x64/WebView2LoaderStatic.lib`
+
+### 3) Configure and build
+
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
 ```
 
-## Download from GitHub Releases
+### 4) Run
 
-Every `v*` tag triggers CI that builds:
-
-| Platform        | File                                |
-|-----------------|-------------------------------------|
-| Windows x64     | `bigos-desktop-windows-x64.zip`    |
-| macOS arm64     | `bigos-desktop-macos-arm64.tar.gz` |
-| macOS x64       | `bigos-desktop-macos-x64.tar.gz`   |
-| Linux x64       | `bigos-desktop-linux-x64.tar.gz`   |
-| Android (debug) | `bigos-android-debug.apk`          |
-
-SHA-256 checksums ship alongside every archive.
-
-## React Native Web compatibility
-
-BigOs uses the platform's **native WebView engine** (WebView2 on Windows, WebKit on macOS, WebKitGTK on Linux, Android WebView on Android). These engines support:
-
-- All ES2020+ JavaScript required by React Native Web
-- `fetch`, `localStorage`, `WebSocket`, `IndexedDB`
-- `eval()` — not blocked (required by React Native's JS bundler in dev mode)
-- `localhost` HTTP — always allowed (no mixed-content restrictions on localhost)
-
-To open a locally running React Native app:
-
-```text
-$> localhost:8081
+```powershell
+.\build\cpp\apps\bigos-desktop\Release\bigos-desktop.exe
 ```
 
-## Roadmap
+## GitHub Releases
 
-- [ ] Bookmarks + history persistence (SQLite via `rusqlite`)
-- [ ] Reader mode
-- [ ] Extension-less content blocking (adblock rules)
-- [ ] macOS/Windows code-signed installers via CI
-- [ ] Android release APK signing via GitHub secrets
-- [ ] Sync across devices (optional, end-to-end encrypted)
+Tagging `v*` triggers desktop CI and publishes a Windows x64 zip in GitHub Releases.
+
+## React Native app compatibility
+
+BigOs uses the system WebView2 engine, so React Native Web apps (including localhost dev servers such as PersonaForge) run with modern browser APIs.
 

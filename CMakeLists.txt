@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.24)
+
+if (WIN32)
+    set(_winsdk_bin_root "C:/Program Files (x86)/Windows Kits/10/bin")
+    if (EXISTS "${_winsdk_bin_root}")
+        file(GLOB _winsdk_versions LIST_DIRECTORIES true "${_winsdk_bin_root}/*")
+        list(SORT _winsdk_versions COMPARE NATURAL ORDER DESCENDING)
+        foreach(_ver_dir ${_winsdk_versions})
+            if (EXISTS "${_ver_dir}/x64/rc.exe" AND EXISTS "${_ver_dir}/x64/mt.exe")
+                set(ENV{PATH} "${_ver_dir}/x64;$ENV{PATH}")
+                break()
+            endif()
+        endforeach()
+    endif()
+endif()
+
+project(BigOs VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if (MSVC)
+    add_compile_options(/W4 /permissive-)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+add_subdirectory(cpp/core)
+add_subdirectory(cpp/apps/bigos-desktop)
