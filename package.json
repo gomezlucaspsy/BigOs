@@ -1,11 +1,11 @@
 {
-  "name": "bigbrowser",
+  "name": "bigos",
   "version": "1.0.0",
-  "description": "BigBrowser - A fast, Unix-styled Node.js web browser with full GUI and CLI modes",
+  "description": "BigOs - A fast, Unix-styled Node.js web browser with full GUI and CLI modes",
   "main": "main.js",
   "bin": {
-    "bigbrowser": "bin/bigbrowser.js",
-    "bigbrowser-gui": "bin/bigbrowser-gui.js"
+    "bigos": "bin/bigbrowser.js",
+    "bigos-gui": "bin/bigbrowser-gui.js"
   },
   "scripts": {
     "start": "electron .",
@@ -16,7 +16,7 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
-  "keywords": ["browser", "electron", "cli", "unix", "freebsd", "react", "node"],
+  "keywords": ["bigos", "browser", "electron", "cli", "unix", "freebsd", "react", "node"],
   "license": "MIT",
   "dependencies": {
     "blessed": "^0.1.81",
@@ -28,8 +28,8 @@
     "electron-builder": "^26.8.0"
   },
   "build": {
-    "appId": "com.bigbrowser.app",
-    "productName": "BigBrowser",
+    "appId": "com.bigos.app",
+    "productName": "BigOs",
     "copyright": "MIT",
     "directories": {
       "output": "dist"

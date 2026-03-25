@@ -1,7 +1,7 @@
 'use strict'
 
 /* ════════════════════════════════════════════════════════════════
-   BigBrowser — Renderer / Browser Chrome
+   BigOs — Renderer / Browser Chrome
    ════════════════════════════════════════════════════════════════ */
 
 // ── DOM refs ──────────────────────────────────────────────────────
@@ -288,6 +288,7 @@ document.addEventListener('keydown', e => {
 // ── Populate version info ─────────────────────────────────────────
 window.api.getVersion().then(v => {
   engineInfo.textContent = 'CHROMIUM/' + v.chrome.split('.')[0]
+  document.title = 'BigOs'
 }).catch(() => {})
 
 // ── Initial tab ───────────────────────────────────────────────────

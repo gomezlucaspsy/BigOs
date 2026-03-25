@@ -1,12 +1,12 @@
 'use strict'
 
 /* ════════════════════════════════════════════════════════════════
-   BigBrowser CLI
+   BigOs CLI
    Terminal-based web browser using blessed TUI.
    ─ Fetches pages via node-fetch
    ─ Parses HTML with cheerio
    ─ Navigates links with Tab / Enter
-   Note: JavaScript / SPAs require the GUI mode (bigbrowser-gui).
+   Note: JavaScript / SPAs require the GUI mode (bigos-gui).
    ════════════════════════════════════════════════════════════════ */
 
 const blessed = require('blessed')
@@ -14,7 +14,7 @@ const fetch   = require('node-fetch')
 const cheerio = require('cheerio')
 const { URL }  = require('url')
 
-class BigBrowserCLI {
+class BigOsCLI {
   constructor () {
     this.history      = []
     this.historyIdx   = -1
@@ -24,7 +24,7 @@ class BigBrowserCLI {
 
     this.screen = blessed.screen({
       smartCSR: true,
-      title: 'BigBrowser CLI',
+      title: 'BigOs CLI',
       fullUnicode: true,
       cursor: { artificial: true, shape: 'line', blink: true, color: 'green' }
     })
@@ -40,24 +40,24 @@ class BigBrowserCLI {
     // Header bar
     this.header = blessed.box({
       parent: S, top: 0, left: 0, width: '100%', height: 1,
-      content: ' BigBrowser CLI v1.0  [g] goto  [b] back  [f] fwd  [Tab] links  [Enter] follow  [?] help  [q] quit',
-      style: { fg: 'black', bg: 'green', bold: true }
+      content: ' BigOs CLI v1.0  [g] goto  [b] back  [f] fwd  [Tab] links  [Enter] follow  [?] help  [q] quit',
+      style: { fg: 'black', bg: 'white', bold: true }
     })
 
     // URL input box
     this.urlBox = blessed.box({
       parent: S, top: 1, left: 0, width: '100%', height: 3,
       border: { type: 'line' },
-      style: { border: { fg: 'green' }, fg: 'green', bg: 'black' }
+      style: { border: { fg: 'white' }, fg: 'white', bg: 'black' }
     })
     blessed.text({
       parent: this.urlBox, left: 1, top: 0,
       content: '$>',
-      style: { fg: 'brightgreen', bold: true, bg: 'black' }
+      style: { fg: 'brightwhite', bold: true, bg: 'black' }
     })
     this.urlDisplay = blessed.text({
       parent: this.urlBox, left: 4, top: 0, right: 1, height: 1,
-      style: { fg: 'green', bg: 'black' }
+      style: { fg: 'white', bg: 'black' }
     })
 
     // Content scrollbox
@@ -69,11 +69,11 @@ class BigBrowserCLI {
       keys: true,
       vi: true,
       mouse: true,
-      scrollbar: { ch: '█', style: { bg: 'green' } },
+      scrollbar: { ch: '█', style: { bg: 'white' } },
       style: {
-        border: { fg: 'green' },
-        fg: 'green', bg: 'black',
-        scrollbar: { bg: 'green', fg: 'black' }
+        border: { fg: 'white' },
+        fg: 'white', bg: 'black',
+        scrollbar: { bg: 'white', fg: 'black' }
       },
       tags: true
     })
@@ -82,11 +82,11 @@ class BigBrowserCLI {
     this.statusBox = blessed.box({
       parent: S, bottom: 0, left: 0, width: '100%', height: 3,
       border: { type: 'line' },
-      style: { border: { fg: 'green' }, fg: 'green', bg: 'black' }
+      style: { border: { fg: 'white' }, fg: 'white', bg: 'black' }
     })
     this.statusMsg = blessed.text({
       parent: this.statusBox, left: 1, top: 0, right: 1,
-      style: { fg: 'green', bg: 'black' }
+      style: { fg: 'white', bg: 'black' }
     })
   }
 
@@ -123,7 +123,7 @@ class BigBrowserCLI {
       width: '80%', height: 5,
       border: { type: 'line' },
       label: ' ∷ Go to URL ',
-      style: { border: { fg: 'green' }, fg: 'green', bg: 'black', label: { fg: 'brightgreen' } }
+      style: { border: { fg: 'white' }, fg: 'white', bg: 'black', label: { fg: 'brightwhite' } }
     })
     prompt.input('$> ', this.currentUrl, (err, value) => {
       prompt.destroy()
@@ -154,7 +154,7 @@ class BigBrowserCLI {
     try {
       const res = await fetch(targetUrl, {
         headers: {
-          'User-Agent': 'BigBrowser/1.0 (CLI; Node.js)',
+          'User-Agent': 'BigOs/1.0 (CLI; Node.js)',
           'Accept': 'text/html,application/xhtml+xml,text/plain,*/*;q=0.9',
           'Accept-Language': 'en-US,en;q=0.9'
         },
@@ -184,7 +184,7 @@ class BigBrowserCLI {
       } else {
         this._renderText(
           `[Binary / unsupported content: ${ctype}]\n\n` +
-          `Use bigbrowser-gui for full rendering of this content.\n` +
+          `Use bigos-gui for full rendering of this content.\n` +
           `URL: ${finalUrl}`
         )
       }
@@ -199,7 +199,7 @@ class BigBrowserCLI {
         `{red-fg}ERROR LOADING PAGE{/red-fg}\n\n` +
         `URL  : ${targetUrl}\n` +
         `Cause: ${err.message}\n\n` +
-        `Press {green-fg}g{/green-fg} to try a different URL.`
+        `Press {white-fg}g{/white-fg} to try a different URL.`
       )
       this.screen.render()
     }
@@ -224,18 +224,18 @@ class BigBrowserCLI {
         if (!/^https?:\/\//i.test(abs)) return
         const idx = this.links.length
         this.links.push({ url: abs, text: text.slice(0, 70) })
-        $(el).replaceWith(`{green-fg}[${idx + 1}]${text}{/green-fg}`)
+        $(el).replaceWith(`{white-fg}[${idx + 1}]${text}{/white-fg}`)
       } catch { /* skip malformed */ }
     })
 
     // Headings
     $('h1').each((_, el) => {
       const t = $(el).text().trim()
-      $(el).replaceWith(`\n\n{bold}{bright-green-fg}══ ${t.toUpperCase()} ══{/bright-green-fg}{/bold}\n`)
+      $(el).replaceWith(`\n\n{bold}{bright-white-fg}══ ${t.toUpperCase()} ══{/bright-white-fg}{/bold}\n`)
     })
     $('h2,h3').each((_, el) => {
       const t = $(el).text().trim()
-      $(el).replaceWith(`\n\n{green-fg}── ${t} ──{/green-fg}\n`)
+      $(el).replaceWith(`\n\n{white-fg}── ${t} ──{/white-fg}\n`)
     })
     $('h4,h5,h6').each((_, el) => {
       const t = $(el).text().trim()
@@ -271,14 +271,14 @@ class BigBrowserCLI {
       .trim()
 
     const header = title
-      ? `{bold}{bright-green-fg}${title}{/bright-green-fg}{/bold}\n` +
-        '{green-fg}' + '═'.repeat(Math.min(title.length + 4, 80)) + '{/green-fg}\n\n'
+      ? `{bold}{bright-white-fg}${title}{/bright-white-fg}{/bold}\n` +
+        '{white-fg}' + '═'.repeat(Math.min(title.length + 4, 80)) + '{/white-fg}\n\n'
       : ''
 
     const linkList = this.links.length
-      ? '\n\n{green-fg}─── LINKS (' + this.links.length + ') ' + '─'.repeat(40) + '{/green-fg}\n' +
+      ? '\n\n{white-fg}─── LINKS (' + this.links.length + ') ' + '─'.repeat(40) + '{/white-fg}\n' +
         this.links.map((l, i) =>
-          `{green-fg}[${i + 1}]{/green-fg} ${l.text}\n    {dim}${l.url}{/dim}`
+          `{white-fg}[${i + 1}]{/white-fg} ${l.text}\n    {dim}${l.url}{/dim}`
         ).join('\n')
       : ''
 
@@ -336,12 +336,12 @@ class BigBrowserCLI {
       top: 'center', left: 'center',
       width: '60%', height: '70%',
       border: { type: 'line' },
-      label: ' BigBrowser CLI — Help ',
-      style: { border: { fg: 'green' }, fg: 'green', bg: 'black', label: { fg: 'brightgreen' } }
+      label: ' BigOs CLI — Help ',
+      style: { border: { fg: 'white' }, fg: 'white', bg: 'black', label: { fg: 'brightwhite' } }
     })
     box.display(
       [
-        'KEYBOARD SHORTCUTS',
+        'BigOs CLI v1.0 — KEYBOARD SHORTCUTS',
         '──────────────────',
         'g / :       Open URL prompt',
         'r           Reload current page',
@@ -363,7 +363,7 @@ class BigBrowserCLI {
         '',
         '─────────────────────────────────────',
         'Note: JavaScript / React SPAs require',
-        'the GUI mode: bigbrowser-gui',
+        'the GUI mode: bigos-gui',
         '─────────────────────────────────────',
         '',
         'Press Enter or Escape to close'
@@ -381,24 +381,24 @@ class BigBrowserCLI {
     } else {
       this.content.setContent(
         [
-          '{bold}{bright-green-fg}BigBrowser CLI  v1.0{/bright-green-fg}{/bold}',
-          '{green-fg}' + '═'.repeat(40) + '{/green-fg}',
+          '{bold}{bright-white-fg}BigOs CLI  v1.0{/bright-white-fg}{/bold}',
+          '{white-fg}' + '═'.repeat(40) + '{/white-fg}',
           '',
-          'Welcome to BigBrowser CLI',
+          'Welcome to BigOs CLI',
           'A Unix-styled terminal web browser built on Node.js.',
           '',
-          'Press {bright-green-fg}g{/bright-green-fg} to enter a URL.',
-          'Press {bright-green-fg}?{/bright-green-fg} for full help.',
-          'Press {bright-green-fg}q{/bright-green-fg} to quit.',
+          'Press {bright-white-fg}g{/bright-white-fg} to enter a URL.',
+          'Press {bright-white-fg}?{/bright-white-fg} for full help.',
+          'Press {bright-white-fg}q{/bright-white-fg} to quit.',
           '',
           '{dim}For full JavaScript / React / SPA support use:{/dim}',
-          '{dim}  bigbrowser-gui{/dim}'
+          '{dim}  bigos-gui{/dim}'
         ].join('\n')
       )
-      this._setStatus('READY  //  BigBrowser CLI v1.0')
+      this._setStatus('READY  //  BigOs CLI v1.0')
       this.screen.render()
     }
   }
 }
 
-module.exports = BigBrowserCLI
+module.exports = BigOsCLI

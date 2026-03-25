@@ -1,5 +1,6 @@
 'use strict'
 
+// BigOs — Node Web Explorer
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('path')
 
