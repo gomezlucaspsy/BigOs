@@ -1,0 +1,16 @@
+[package]
+name = "bigos-android"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+# Build as a cdylib so the Android NDK can link it as a .so
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+bigos-core = { path = "../bigos-core" }
+# jni is only needed when compiling for Android targets
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+

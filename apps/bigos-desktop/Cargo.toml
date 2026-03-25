@@ -1,0 +1,14 @@
+[package]
+name = "bigos-desktop"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bigos-core = { path = "../../crates/bigos-core" }
+tao  = "0.30"
+wry  = "0.47"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+webview2-com = "0.33"
+windows       = { version = "0.58", features = ["Win32_Foundation"] }
+

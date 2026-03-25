@@ -1,0 +1,114 @@
+name: Release Android APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-rust-so:
+    name: Build Rust .so (${{ matrix.abi }})
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - abi: arm64-v8a
+            target: aarch64-linux-android
+          - abi: armeabi-v7a
+            target: armv7-linux-androideabi
+          - abi: x86_64
+            target: x86_64-linux-android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r26d
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: android-${{ matrix.abi }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Rust shared library
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang
+          CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER: ${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi34-clang
+          CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER: ${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android34-clang
+        run: |
+          cargo build --release -p bigos-android --target ${{ matrix.target }}
+
+      - name: Stage .so
+        run: |
+          mkdir -p jniLibs/${{ matrix.abi }}
+          cp target/${{ matrix.target }}/release/libbigos_android.so \
+             jniLibs/${{ matrix.abi }}/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jni-${{ matrix.abi }}
+          path: jniLibs/
+
+  build-apk:
+    name: Build & Sign APK
+    runs-on: ubuntu-22.04
+    needs: build-rust-so
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: jni-*
+          path: apps/bigos-android/app/src/main/jniLibs
+          merge-multiple: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        working-directory: apps/bigos-android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bigos-android-debug
+          path: apps/bigos-android/app/build/outputs/apk/debug/*.apk
+
+  release:
+    name: Attach APK to Release
+    runs-on: ubuntu-latest
+    needs: build-apk
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bigos-android-debug
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
+          generate_release_notes: false
