@@ -199,6 +199,19 @@ const wchar_t* kFreeBsdChromeScript = LR"JS(
   document.head.appendChild(style);
   document.documentElement.appendChild(bar);
 
+  const enforcePresence = () => {
+    if (!document.getElementById('bigos-chrome')) {
+      document.documentElement.appendChild(bar);
+    }
+    if (!document.head.contains(style)) {
+      document.head.appendChild(style);
+    }
+  };
+
+  const observer = new MutationObserver(enforcePresence);
+  observer.observe(document.documentElement, { childList: true, subtree: false });
+  observer.observe(document.head, { childList: true, subtree: false });
+
   const addr = document.getElementById('bigos-address');
   const tabsEl = document.getElementById('bigos-tabs');
   const backBtn = document.getElementById('bigos-back');
@@ -808,6 +821,25 @@ void UpdateActiveTabFromWebView(AppState* state) {
   }
 }
 
+#include <shobjidl.h>
+
+void CreateDesktopShortcut(const std::wstring& title, const std::wstring& target, const std::wstring& args) {
+    ComPtr<IShellLinkW> link;
+    if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link)))) {
+        link->SetPath(target.c_str());
+        link->SetArguments(args.c_str());
+        
+        wchar_t desktop[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr, 0, desktop))) {
+            std::wstring lnk_path = std::wstring(desktop) + L"\\" + title + L".lnk";
+            ComPtr<IPersistFile> persist;
+            if (SUCCEEDED(link.As(&persist))) {
+                persist->Save(lnk_path.c_str(), TRUE);
+            }
+        }
+    }
+}
+
 void HandleCommand(AppState* state, const std::wstring& command) {
   if (!state || !state->webview) {
     return;
@@ -828,14 +860,8 @@ void HandleCommand(AppState* state, const std::wstring& command) {
       wchar_t exe_path[MAX_PATH];
       GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
 
-      std::wstring ps_cmd = L"powershell -NoProfile -WindowStyle Hidden -Command \"$s=(New-Object -COM WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\\";
-      ps_cmd += title + L".lnk');$s.TargetPath='";
-      ps_cmd += exe_path;
-      ps_cmd += L"';$s.Arguments='--app=";
-      ps_cmd += url;
-      ps_cmd += L"';$s.Save()\"";
-
-      _wsystem(ps_cmd.c_str());
+      std::wstring args = L"--app=" + url;
+      CreateDesktopShortcut(title, exe_path, args);
     }
     return;
   }
