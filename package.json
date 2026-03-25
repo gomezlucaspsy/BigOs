@@ -17,20 +17,22 @@
     "build:linux": "electron-builder --linux"
   },
   "keywords": ["bigos", "browser", "electron", "cli", "unix", "freebsd", "react", "node"],
+  "author": "BigOs",
   "license": "MIT",
   "dependencies": {
     "blessed": "^0.1.81",
     "cheerio": "^1.0.0",
-    "electron": "^35.0.0",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
+    "electron": "^35.0.0",
     "electron-builder": "^26.8.0"
   },
   "build": {
     "appId": "com.bigos.app",
     "productName": "BigOs",
     "copyright": "MIT",
+    "asar": false,
     "directories": {
       "output": "dist"
     },
@@ -42,7 +44,11 @@
       "!node_modules/.cache"
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }]
+      "verifyUpdateCodeSignature": false,
+      "target": [
+        { "target": "dir",  "arch": ["x64"] },
+        { "target": "zip",  "arch": ["x64"] }
+      ]
     },
     "mac": {
       "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }]
