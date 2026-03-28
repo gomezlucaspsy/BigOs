@@ -10,6 +10,16 @@
     <Title>Unix Browser</Title>
     <Product>Unix Browser</Product>
     <Description>A minimalist web browser for Windows with PWA and React Native support</Description>
+    <Version>1.0.0</Version>
+    <Authors>Unix Browser Team</Authors>
+    <PackageProjectUrl>https://github.com/yourusername/unixbrowser</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yourusername/unixbrowser</RepositoryUrl>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>

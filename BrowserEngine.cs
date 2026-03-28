@@ -16,6 +16,10 @@ namespace UnixBrowser
         private ReactNativeManager? _reactNativeManager;
 
         public event Action<string>? OnUrlChanged;
+        public event Action<string>? OnTitleChanged;
+
+        public string CurrentTitle => _coreWebView?.DocumentTitle ?? string.Empty;
+        public string CurrentUrl   => _coreWebView?.Source        ?? string.Empty;
 
         public BrowserEngine(Grid container)
         {
@@ -41,9 +45,10 @@ namespace UnixBrowser
             ConfigureSettings();
 
             // Subscribe to events
-            _coreWebView.NavigationStarting += CoreWebView_NavigationStarting;
-            _coreWebView.NavigationCompleted += CoreWebView_NavigationCompleted;
-            _coreWebView.SourceChanged += CoreWebView_SourceChanged;
+            _coreWebView.NavigationStarting   += CoreWebView_NavigationStarting;
+            _coreWebView.NavigationCompleted  += CoreWebView_NavigationCompleted;
+            _coreWebView.SourceChanged        += CoreWebView_SourceChanged;
+            _coreWebView.DocumentTitleChanged += (s, e) => OnTitleChanged?.Invoke(_coreWebView.DocumentTitle);
 
             // Navigate to home
             _webView!.Source = new Uri("about:blank");
