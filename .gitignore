@@ -1,6 +1,27 @@
-build/
+# Visual Studio cache/options directory
 .vs/
+
+# Build output
+bin/
+obj/
+
+# .NET
 *.user
-*.sln
-*.vcxproj*
-deps/
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
