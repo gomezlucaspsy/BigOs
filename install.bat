@@ -1,38 +1,54 @@
 @echo off
-REM Unix Browser - Installer Batch Wrapper
-REM This launches the PowerShell installer with admin rights
-
 setlocal enabledelayedexpansion
-
 echo.
-echo ╔════════════════════════════════════════╗
-echo ║   Unix Browser - Installation Wizard   ║
-echo ║         Terminal Edition v1.0          ║
-echo ╚════════════════════════════════════════╝
+echo ========================================
+echo   Unix Browser Installation
+echo ========================================
 echo.
-
-REM Check for administrator privileges
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo [×] This script requires Administrator privileges
-    echo Right-click this file and select "Run as Administrator"
+    echo ERROR: Run as Administrator
     pause
     exit /b 1
 )
-
-REM Default install path
-set "INSTALL_PATH=C:\Program Files\UnixBrowser"
-
-REM Check if .NET is installed
 where dotnet >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [×] .NET 8.0 SDK is not installed
-    echo Download from: https://dotnet.microsoft.com/download
+    echo ERROR: .NET 8.0 not installed
     pause
     exit /b 1
 )
-
-REM Run the PowerShell installer
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" -InstallPath "%INSTALL_PATH%"
-
+set "INSTALL=%ProgramFiles%\UnixBrowser"
+set "PROJECT=%~dp0"
+echo [1/4] Building...
+cd /d "%PROJECT%"
+dotnet build -c Release --nologo
+if !errorlevel! neq 0 exit /b 1
+echo [2/4] Publishing...
+dotnet publish -c Release --self-contained -o "bin\Release\net8.0-windows\publish" --nologo
+if !errorlevel! neq 0 exit /b 1
+echo [3/4] Installing...
+if exist "%INSTALL%" rmdir /s /q "%INSTALL%"
+mkdir "%INSTALL%"
+xcopy "bin\Release\net8.0-windows\publish\*" "%INSTALL%\" /e /i /y >nul
+copy "UnixBrowser.bat" "%INSTALL%\" >nul
+echo [4/4] Creating shortcuts...
+set "VBS=%temp%\mkshortcut.vbs"
+(
+  echo Set s=CreateObject^("WScript.Shell"^)
+  echo Set l=s.CreateShortcut^(s.SpecialFolders^("Desktop"^)^&"\Unix Browser.lnk"^)
+  echo l.TargetPath="%INSTALL%\UnixBrowser.bat"
+  echo l.WorkingDirectory="%INSTALL%"
+  echo l.Save
+) > "%VBS%"
+cscript //nologo "%VBS%"
+del "%VBS%"
+echo.
+echo ========================================
+echo Installation Complete!
+echo ========================================
+echo.
+echo Installed to: %INSTALL%
+echo.
 pause
+"%INSTALL%\UnixBrowser.bat"
+
