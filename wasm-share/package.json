@@ -1,0 +1,17 @@
+{
+  "name": "wasm-share",
+  "version": "1.0.0",
+  "description": "P2P file transfer via WebRTC + WebAssembly streaming",
+  "main": "server.js",
+  "scripts": {
+    "build:wasm": "node -e \"const wabt = require('wabt'); wabt().then(w => { const m = w.parseWat('compress.wat', require('fs').readFileSync('public/wasm/compress.wat','utf8')); const bin = m.toBinary({}); require('fs').writeFileSync('public/wasm/compress.wasm', bin.buffer); console.log('✓ compress.wasm generated'); })\"",
+    "start": "node server.js",
+    "dev": "npm run build:wasm && npm start"
+  },
+  "dependencies": {
+    "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "wabt": "^1.0.39"
+  }
+}

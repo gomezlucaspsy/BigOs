@@ -58,3 +58,4 @@ Edit Config/BrowserConfig.cs to customize:
 LICENSE
 -------
 Free and open source.
+W

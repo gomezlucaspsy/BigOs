@@ -135,13 +135,23 @@
 
         <!-- Status Bar -->
         <Border Grid.Row="5" Background="#1a1a1a" BorderBrush="#333333" BorderThickness="0,1,0,0">
-            <Grid Margin="10,5">
-                <TextBlock x:Name="StatusText" Foreground="#888888" Text="Ready" FontSize="10" VerticalAlignment="Center"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock x:Name="AdBlockStatus" Foreground="#00ff00" Text="[🛡 AdBlock: ON | 0 blocked]" FontSize="10" Margin="0,0,15,0"/>
-                    <TextBlock x:Name="IpStatus" Foreground="#888888" Text="[IP: ...]" FontSize="10" Margin="0,0,15,0"/>
-                    <TextBlock Foreground="#888888" Text="[PWA Ready]" FontSize="10"/>
-                </StackPanel>
+            <Grid>
+                <!-- Progress bar (streaming indicator) -->
+                <ProgressBar x:Name="LoadProgress"
+                             Height="2" VerticalAlignment="Top"
+                             Background="Transparent"
+                             Foreground="#00ff00"
+                             BorderThickness="0"
+                             Minimum="0" Maximum="100" Value="0"/>
+                <Grid Margin="10,5">
+                    <TextBlock x:Name="StatusText" Foreground="#888888" Text="Ready" FontSize="10" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="WasmStatus" Foreground="#00ccff" Text="" FontSize="10" Margin="0,0,15,0"/>
+                        <TextBlock x:Name="AdBlockStatus" Foreground="#00ff00" Text="[🛡 AdBlock: ON | 0 blocked]" FontSize="10" Margin="0,0,15,0"/>
+                        <TextBlock x:Name="IpStatus" Foreground="#888888" Text="[IP: ...]" FontSize="10" Margin="0,0,15,0"/>
+                        <TextBlock Foreground="#888888" Text="[Apollo 11 v1.1]" FontSize="10"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
     </Grid>

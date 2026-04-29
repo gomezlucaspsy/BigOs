@@ -1,19 +1,29 @@
+// ============================================================
+// AdBlocker.cs — Request-level Ad & Tracker Blocker
+// Purpose : Intercepts every HTTP request before it leaves
+//           the browser and drops known ad/tracker URLs.
+//           No bytes sent = no data leaked = pure browsing.
+// Philosophy: The web is 0s and 1s. Ads are noise injected
+//             between those bits. We filter them out.
+// ============================================================
 using Microsoft.Web.WebView2.Core;
 
 namespace UnixBrowser.Services
 {
     /// <summary>
-    /// Ad blocker - blocks ad/tracker requests at the byte level before they load
-    /// Philosophy: Pure 0s and 1s, no corporate noise injected in between
+    /// Blocks ad networks, trackers, and fingerprinters at the
+    /// network request level — before any bytes leave the machine.
+    /// Operates as a blacklist: anything not on the list passes through.
     /// </summary>
     public class AdBlocker
     {
-        private bool _enabled = true;
-        private int _blockedCount = 0;
+        private bool _enabled     = true;  // On by default — user can toggle off
+        private int  _blockedCount = 0;    // Running total for status bar display
 
-        public bool IsEnabled => _enabled;
-        public int BlockedCount => _blockedCount;
+        public bool IsEnabled    => _enabled;
+        public int  BlockedCount => _blockedCount;
 
+        /// <summary>Fired every time a request is blocked. Carries the new running total.</summary>
         public event Action<int>? OnBlockedCountChanged;
 
         // Known ad/tracker domains to block
@@ -51,58 +61,62 @@ namespace UnixBrowser.Services
             "analytics", "telemetry", "metrics", "/stat/",
         };
 
+        /// <summary>
+        /// Registers the filter and hooks into the WebView2 request pipeline.
+        /// Must be called after CoreWebView2 is initialized.
+        /// </summary>
         public void Attach(CoreWebView2 coreWebView)
         {
+            // "*" filter tells WebView2 to surface every request to our handler
             coreWebView.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
             coreWebView.WebResourceRequested += OnWebResourceRequested;
         }
 
+        /// <summary>Unhooks the blocker. Call when disposing or disabling permanently.</summary>
         public void Detach(CoreWebView2 coreWebView)
         {
             coreWebView.WebResourceRequested -= OnWebResourceRequested;
         }
 
+        /// <summary>
+        /// Called for every outgoing request. Returns a 204 No Content
+        /// response for blocked URLs so the page does not error out.
+        /// </summary>
         private void OnWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
         {
             if (!_enabled) return;
 
-            var uri = e.Request.Uri;
-            if (ShouldBlock(uri))
+            if (ShouldBlock(e.Request.Uri))
             {
-                e.Response = (sender as CoreWebView2)?.Environment.CreateWebResourceResponse(
-                    null, 204, "No Content", string.Empty);
+                // 204 No Content is the cleanest way to silently drop a request
+                e.Response = (sender as CoreWebView2)?.Environment
+                    .CreateWebResourceResponse(null, 204, "No Content", string.Empty);
                 _blockedCount++;
                 OnBlockedCountChanged?.Invoke(_blockedCount);
-                System.Diagnostics.Debug.WriteLine($"[AdBlocker] Blocked: {uri}");
             }
         }
 
+        /// <summary>
+        /// Returns true if the URI matches a known ad domain or URL pattern.
+        /// Two-pass check: domain list first (fast), then pattern list (slower).
+        /// </summary>
         private bool ShouldBlock(string uri)
         {
             if (string.IsNullOrEmpty(uri)) return false;
 
-            // Check blocked domains
             foreach (var domain in BlockedDomains)
-            {
-                if (uri.Contains(domain, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
+                if (uri.Contains(domain, StringComparison.OrdinalIgnoreCase)) return true;
 
-            // Check blocked patterns
             foreach (var pattern in BlockedPatterns)
-            {
-                if (uri.Contains(pattern, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
+                if (uri.Contains(pattern, StringComparison.OrdinalIgnoreCase)) return true;
 
             return false;
         }
 
-        public void Toggle()
-        {
-            _enabled = !_enabled;
-        }
+        /// <summary>Flip the enabled state. Blocked count is preserved across toggles.</summary>
+        public void Toggle() => _enabled = !_enabled;
 
+        /// <summary>Reset the blocked counter to zero (e.g. on new tab).</summary>
         public void ResetCount()
         {
             _blockedCount = 0;

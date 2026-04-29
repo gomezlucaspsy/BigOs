@@ -1,4 +1,4 @@
-/* Unix Browser - Configuration */
+/* Unix Browser - Configuration - Apollo 11 v1.1 */
 namespace UnixBrowser.Config
 {
     public static class BrowserConfig
