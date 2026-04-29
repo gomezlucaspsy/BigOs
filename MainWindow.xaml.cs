@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using UnixBrowser.Models;
 using UnixBrowser.Services;
+using UnixBrowser.Config;
 
 namespace UnixBrowser
 {
@@ -28,14 +29,32 @@ namespace UnixBrowser
                 _engine = new BrowserEngine(WebViewContainer);
                 await _engine.Initialize();
 
+                // Set window title based on mode
+                Title = App.IsBeastMode ? "Unix Browser - Beast Mode" : "Unix Browser";
+                StatusText.Text = App.IsBeastMode ? "Beast Mode (Minimal Features)" : "Ready";
+
                 AddressBar.KeyDown        += AddressBar_KeyDown;
                 _engine.OnUrlChanged      += url   => Dispatcher.Invoke(() => OnEngineUrlChanged(url));
                 _engine.OnTitleChanged    += title => Dispatcher.Invoke(() => _currentTitle = title);
 
+                _engine.OnAdsBlocked  += count => Dispatcher.Invoke(() =>
+                    AdBlockStatus.Text = $"[🛡 AdBlock: ON | {count} blocked]");
+                _engine.OnShareStatus += msg => Dispatcher.Invoke(() => StatusText.Text = msg);
+                _engine.OnItemReceived += item => Dispatcher.Invoke(() =>
+                {
+                    StatusText.Text = $"⚡ Received from {item.SenderIP}: {item.Title}";
+                    if (item.Type == UnixBrowser.Services.ShareType.Url)
+                        _engine.Navigate(item.Content);
+                });
+
+                IpStatus.Text = $"[IP: {_engine.LocalIP}]";
+
                 BackButton.Click    += (s, e) => _engine.GoBack();
                 ForwardButton.Click += (s, e) => _engine.GoForward();
                 RefreshButton.Click += (s, e) => _engine.Refresh();
-                HomeButton.Click    += (s, e) => _engine.Navigate("https://www.google.com");
+
+                var homePage = App.IsBeastMode ? "about:blank" : "https://www.google.com";
+                HomeButton.Click    += (s, e) => _engine.Navigate(homePage);
 
                 _favorites.OnChanged += () => Dispatcher.Invoke(RefreshFavoritesBar);
                 _tabs.OnTabsChanged  += () => Dispatcher.Invoke(RefreshTabBar);
@@ -46,7 +65,6 @@ namespace UnixBrowser
 
                 RefreshFavoritesBar();
                 RefreshTabBar();
-                StatusText.Text = "Ready";
             }
             catch (Exception ex)
             {
@@ -248,6 +266,31 @@ namespace UnixBrowser
 
                 FavoritesPanel.Children.Add(btn);
             }
+        }
+
+        // ── Window controls ──────────────────────────────────────────────────
+
+        // ── Ad Blocker ───────────────────────────────────────────────────────
+
+        private void AdBlockBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _engine!.ToggleAdBlocker();
+            var isOn = _engine.AdBlockOn;
+            AdBlockBtn.Foreground = isOn
+                ? new SolidColorBrush(Color.FromRgb(0x00, 0xff, 0x00))
+                : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
+            AdBlockStatus.Text = isOn
+                ? $"[🛡 AdBlock: ON | {_engine.AdsBlocked} blocked]"
+                : "[🛡 AdBlock: OFF]";
+        }
+
+        // ── Quick Share ───────────────────────────────────────────────────────
+
+        private async void QuickShareBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new QuickShareDialog(_engine!);
+            dialog.Owner = this;
+            dialog.ShowDialog();
         }
 
         // ── Window controls ──────────────────────────────────────────────────

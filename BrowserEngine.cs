@@ -14,12 +14,21 @@ namespace UnixBrowser
         private CoreWebView2? _coreWebView;
         private PWAManager? _pwaManager;
         private ReactNativeManager? _reactNativeManager;
+        private AdBlocker _adBlocker = new();
+        private QuickShareService _quickShare = new();
 
         public event Action<string>? OnUrlChanged;
         public event Action<string>? OnTitleChanged;
+        public event Action<int>? OnAdsBlocked;
+        public event Action<SharedItem>? OnItemReceived;
+        public event Action<string>? OnShareStatus;
 
-        public string CurrentTitle => _coreWebView?.DocumentTitle ?? string.Empty;
-        public string CurrentUrl   => _coreWebView?.Source        ?? string.Empty;
+        public string CurrentTitle  => _coreWebView?.DocumentTitle ?? string.Empty;
+        public string CurrentUrl    => _coreWebView?.Source        ?? string.Empty;
+        public bool   AdBlockOn     => _adBlocker.IsEnabled;
+        public int    AdsBlocked    => _adBlocker.BlockedCount;
+        public string LocalIP       => _quickShare.LocalIP;
+        public CoreWebView2? CoreWebView2 => _coreWebView;
 
         public BrowserEngine(Grid container)
         {
@@ -43,6 +52,15 @@ namespace UnixBrowser
 
             // Configure settings for performance
             ConfigureSettings();
+
+            // Attach ad blocker
+            _adBlocker.Attach(_coreWebView);
+            _adBlocker.OnBlockedCountChanged += count => OnAdsBlocked?.Invoke(count);
+
+            // Attach quick share
+            _quickShare.OnItemReceived += item => OnItemReceived?.Invoke(item);
+            _quickShare.OnStatusChanged += msg => OnShareStatus?.Invoke(msg);
+            _quickShare.StartReceiving();
 
             // Subscribe to events
             _coreWebView.NavigationStarting   += CoreWebView_NavigationStarting;
@@ -145,5 +163,13 @@ namespace UnixBrowser
         {
             _coreWebView!.Reload();
         }
+
+        public void ToggleAdBlocker() => _adBlocker.Toggle();
+
+        public async Task ShareCurrentUrl(string targetIp)
+            => await _quickShare.ShareUrl(targetIp, CurrentUrl, CurrentTitle);
+
+        public async Task<List<string>> DiscoverDevices()
+            => await _quickShare.DiscoverDevices();
     }
 }

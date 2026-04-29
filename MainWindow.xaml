@@ -68,6 +68,8 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="34"/>
                     <ColumnDefinition Width="34"/>
+                    <ColumnDefinition Width="34"/>
+                    <ColumnDefinition Width="34"/>
                 </Grid.ColumnDefinitions>
 
                 <Button x:Name="BackButton" Grid.Column="0" Background="#2a2a2a" Foreground="#00ff00" 
@@ -99,6 +101,22 @@
                         BorderThickness="1" BorderBrush="#444444"
                         Width="34" Height="34" Cursor="Hand" Margin="4,0,0,0"
                         Click="ToggleFavoritesBtn_Click"/>
+
+                <!-- Ad Blocker Toggle -->
+                <Button x:Name="AdBlockBtn" Grid.Column="7"
+                        Background="#2a2a2a" Foreground="#00ff00"
+                        Content="🛡" FontSize="14" ToolTip="Toggle Ad Blocker"
+                        BorderThickness="1" BorderBrush="#444444"
+                        Width="34" Height="34" Cursor="Hand" Margin="4,0,0,0"
+                        Click="AdBlockBtn_Click"/>
+
+                <!-- Quick Share -->
+                <Button x:Name="QuickShareBtn" Grid.Column="8"
+                        Background="#2a2a2a" Foreground="#00ccff"
+                        Content="⚡" FontSize="14" ToolTip="Quick Share current URL"
+                        BorderThickness="1" BorderBrush="#444444"
+                        Width="34" Height="34" Cursor="Hand" Margin="4,0,0,0"
+                        Click="QuickShareBtn_Click"/>
             </Grid>
         </Border>
 
@@ -120,8 +138,9 @@
             <Grid Margin="10,5">
                 <TextBlock x:Name="StatusText" Foreground="#888888" Text="Ready" FontSize="10" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Foreground="#888888" Text="[PWA Ready]" FontSize="10" Margin="0,0,15,0"/>
-                    <TextBlock Foreground="#888888" Text="[Service Worker: Active]" FontSize="10"/>
+                    <TextBlock x:Name="AdBlockStatus" Foreground="#00ff00" Text="[🛡 AdBlock: ON | 0 blocked]" FontSize="10" Margin="0,0,15,0"/>
+                    <TextBlock x:Name="IpStatus" Foreground="#888888" Text="[IP: ...]" FontSize="10" Margin="0,0,15,0"/>
+                    <TextBlock Foreground="#888888" Text="[PWA Ready]" FontSize="10"/>
                 </StackPanel>
             </Grid>
         </Border>
