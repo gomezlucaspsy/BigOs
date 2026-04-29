@@ -27,5 +27,4 @@ Thumbs.db
 *.log
 
 # Sensitive uploaded files - do not sync
-*.bin
 upload_*

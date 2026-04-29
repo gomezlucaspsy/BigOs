@@ -1,4 +1,4 @@
-﻿// LocalhostStreamServer.cs - Node.js backed LAN + WASM + PWA Streaming Server
+// LocalhostStreamServer.cs - Node.js backed LAN + WASM + PWA Streaming Server
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -210,7 +210,7 @@ const r=await fetch('/wasm/upload?name='+encodeURIComponent(f.name),{{method:'PO
 document.getElementById('wo').textContent=JSON.stringify(await r.json(),null,2);}}
 async function listWasm(){{const r=await fetch('/wasm/list');document.getElementById('wo').textContent=JSON.stringify(await r.json(),null,2);}}
 async function uploadFile(){{const f=document.getElementById('df').files[0];if(!f)return;
-const r=await fetch('/upload',{{method:'POST',body:await f.arrayBuffer()}});document.getElementById('uo').textContent=JSON.stringify(await r.json(),null,2);}}
+const r=await fetch('/upload?name='+encodeURIComponent(f.name),{{method:'POST',body:await f.arrayBuffer()}});document.getElementById('uo').textContent=JSON.stringify(await r.json(),null,2);}}
 async function runCmd(){{const r=await fetch('/exec?cmd='+encodeURIComponent(document.getElementById('cmd').value));
 const j=await r.json();document.getElementById('eo').textContent=(j.output||'')+(j.error?'\\n[err]'+j.error:'');}}
 </script></body></html>`);
@@ -230,12 +230,16 @@ const j=await r.json();document.getElementById('eo').textContent=(j.output||'')+
     req.on('data', c => chunks.push(c));
     req.on('end', () => {{
       const buf = Buffer.concat(chunks);
-      const fname = `upload_${{Date.now()}}.bin`;
+      const rawName = (q.name || '').replace(/[^a-zA-Z0-9._\-()\s]/g, '_');
+      const ext = rawName && path.extname(rawName) ? path.extname(rawName) : '.png';
+      const base = rawName ? path.basename(rawName, ext) : 'upload';
+      const fname = `${{base}}_${{Date.now()}}${{ext}}`;
       const downloadsDir = path.join(os.homedir(), 'Downloads');
+      if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, {{ recursive: true }});
       fs.writeFileSync(path.join(downloadsDir, fname), buf);
-      broadcast(JSON.stringify({{ event:'upload', size:buf.length }}));
+      broadcast(JSON.stringify({{ event:'upload', file:fname, size:buf.length }}));
       res.writeHead(200, {{ 'Content-Type':'application/json' }});
-      res.end(JSON.stringify({{ success:true, file:fname, size:buf.length }}));
+      res.end(JSON.stringify({{ success:true, file:fname, size:buf.length, savedTo:downloadsDir }}));
     }});
     return;
   }}
